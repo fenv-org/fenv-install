@@ -1,0 +1,38 @@
+name: Release scripts
+
+permissions:
+  contents: write
+
+on: workflow_dispatch
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Merge main -> release
+        uses: devmasx/merge-branch@1.4.0
+        with:
+          type: now
+          from_branch: main
+          target_branch: release
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/checkout@v3
+        with:
+          ref: release
+
+      - name: Generate fenv-install-release.sh
+        run: |
+          cat fenv-install.sh \
+            | sed -e 's/SCRIPT_VERSION="main"/SCRIPT_VERSION="release"/' \
+            > fenv-install-release.sh
+
+      - name: Commit & Push changes
+        uses: actions-js/push@master
+        with:
+          branch: release
+          author_email: fenv@jerry.company
+          author_name: fenv-jerry
+          message: deploy
+          github_token: ${{ secrets.GITHUB_TOKEN }}

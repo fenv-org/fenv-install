@@ -1,5 +1,10 @@
 import * as fs from 'https://deno.land/std@0.190.0/fs/mod.ts'
-import { Asset, downloadZipAsset, getRelease, Release } from './fenv-release.ts'
+import {
+  Asset,
+  downloadZipAsset,
+  getRelease,
+  Release,
+} from './module/fenv-release.ts'
 
 const DEBUG = Deno.env.get('FENV_DEBUG') === '1'
 

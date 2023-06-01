@@ -1,4 +1,4 @@
-import { getRelease, Release } from './fenv-release.ts'
+import { getRelease, Release } from './module/fenv-release.ts'
 
 const BASE_URL = 'https://raw.githubusercontent.com/fenv-org/fenv'
 

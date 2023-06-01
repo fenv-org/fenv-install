@@ -21,7 +21,7 @@ SCRIPT_VERSION="main"
 SCRIPT_BASE_URL="https://$SCRIPT_AUTHORITY/$SCRIPT_REPO/$SCRIPT_VERSION"
 DENO_RELOAD_FLAG="--reload=https://$SCRIPT_AUTHORITY/$SCRIPT_REPO"
 
-temp_dir=$(mktemp -d)
+temp_dir=$(mktemp -d tmp_XXXXXXXX)
 deno_bin=$temp_dir/bin/deno
 
 if [[ -z "$FENV_ROOT" ]]; then

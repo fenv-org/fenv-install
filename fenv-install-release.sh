@@ -121,12 +121,16 @@ function main() {
 
   if [[ -n "$FENV_VERSION" ]] && \
      [[ "$(higher_version v0.0.4 "$FENV_VERSION")" == "v0.0.4" ]]; then
-    {
-      echo "fenv-init: '$FENV_VERSION' is no longer supported."
-      echo "           Will install the latest version."
-    } >&2
-    # v0.0.4 and older versions are no longer supported.
-    unset FENV_VERSION
+    git clone \
+      -c advice.detachedHead=false \
+      -b "$FENV_VERSION" \
+      https://github.com/fenv-org/fenv \
+      "$temp_dir"
+    pushd "$temp_dir" > /dev/null
+    ./setup_fenv.sh
+    popd > /dev/null
+    rm -rf "$temp_dir" > /dev/null
+    exit 0
   fi
 
   install_deno

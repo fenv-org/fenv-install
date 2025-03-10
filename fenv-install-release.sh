@@ -3,9 +3,9 @@
 set -eo pipefail
 
 if [[ -n "$FENV_DEBUG" ]]; then
-    # https://wiki-dev.bash-hackers.org/scripting/debuggingtips#making_xtrace_more_useful
-    export PS4='+(${BASH_SOURCE}:${LINENO}): ${FUNCNAME[0]:+${FUNCNAME[0]}(): }'
-    set -x
+  # https://wiki-dev.bash-hackers.org/scripting/debuggingtips#making_xtrace_more_useful
+  export PS4='+(${BASH_SOURCE}:${LINENO}): ${FUNCNAME[0]:+${FUNCNAME[0]}(): }'
+  set -x
 fi
 
 OS_TYPE_LINUX=1
@@ -70,18 +70,18 @@ function ensure_unzip() {
 
 function install_deno() {
   case "$(uname -sm)" in
-    "Linux aarch64" )
-      # See here: https://github.com/LukeChannings/deno-arm64
-      install_sh=https://gist.githubusercontent.com/LukeChannings/09d53f5c364391042186518c8598b85e/raw/ac8cd8c675b985edd4b3e16df63ffef14d1f0e24/deno_install.sh
-      ;;
+  "Linux aarch64")
+    # See here: https://github.com/LukeChannings/deno-arm64
+    install_sh=https://gist.githubusercontent.com/LukeChannings/09d53f5c364391042186518c8598b85e/raw/ac8cd8c675b985edd4b3e16df63ffef14d1f0e24/deno_install.sh
+    ;;
 
-    * )
-      install_sh=https://deno.land/install.sh
-      ;;
+  *)
+    install_sh=https://deno.land/install.sh
+    ;;
   esac
 
   >&2 echo "Installing script runner..."
-  curl -fsSL "$install_sh" | DENO_INSTALL=$temp_dir sh > /dev/null
+  curl -fsSL "$install_sh" | DENO_INSTALL=$temp_dir sh -s -- v1.46.3 >/dev/null
 }
 
 function deno_run() {
@@ -107,8 +107,8 @@ function copy_shims() {
     "$SCRIPT_BASE_URL/gen-copy-shims-instructions.ts" \
     "$fenv_home" \
     $FENV_VERSION \
-    2> /dev/null \
-    | bash -
+    2>/dev/null |
+    bash -
 }
 
 function higher_version() {
@@ -116,20 +116,20 @@ function higher_version() {
 }
 
 function main() {
-  check_os > /dev/null
+  check_os >/dev/null
   ensure_unzip
 
-  if [[ -n "$FENV_VERSION" ]] && \
-     [[ "$(higher_version v0.0.4 "$FENV_VERSION")" == "v0.0.4" ]]; then
+  if [[ -n "$FENV_VERSION" ]] &&
+    [[ "$(higher_version v0.0.4 "$FENV_VERSION")" == "v0.0.4" ]]; then
     git clone \
       -c advice.detachedHead=false \
       -b "$FENV_VERSION" \
       https://github.com/fenv-org/fenv \
       "$temp_dir"
-    pushd "$temp_dir" > /dev/null
+    pushd "$temp_dir" >/dev/null
     ./setup_fenv.sh
-    popd > /dev/null
-    rm -rf "$temp_dir" > /dev/null
+    popd >/dev/null
+    rm -rf "$temp_dir" >/dev/null
     exit 0
   fi
 

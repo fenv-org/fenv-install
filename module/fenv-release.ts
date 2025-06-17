@@ -38,7 +38,7 @@ export async function getRelease(
       headers: {
         ...authHeader,
         'accept': 'application/vnd.github+json',
-        'x-github0api-version': '2022-11-28',
+        'X-GitHub-Api-Version': '2022-11-28',
       },
     },
   )

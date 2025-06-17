@@ -1,5 +1,5 @@
 import { decompress } from 'jsr:@fakoua/zip-ts@1.3.1'
-import { existsSync } from 'jsr:@std/fs@^1.0.8'
+import $ from 'jsr:@david/dax@0.43.2'
 
 export type Release = {
   id: number
@@ -78,21 +78,15 @@ export async function downloadZipAsset(
     await Deno.writeFile(tempFile, blob.stream())
     if (DEBUG) {
       console.error(`Downloaded asset to: ${tempFile}`)
-    }
-    if (existsSync(destination)) {
-      if (DEBUG) {
-        console.error(`Recreating destination: ${destination}`)
-      }
-      Deno.removeSync(destination)
-      Deno.mkdirSync(destination, { recursive: true })
-    }
-    if (DEBUG) {
       console.error(`Decompressing asset to: ${destination}`)
     }
-    const result = await decompress(tempFile, destination)
-    if (DEBUG) {
-      console.error(`Decompressed asset to: ${result}`)
-    }
+    await $`unzip -o ${tempFile} -d ${destination}`
+    // const result = await decompress(tempFile, destination, {
+    //   overwrite: true,
+    // })
+    // if (DEBUG) {
+    //   console.error(`Decompressed asset to: ${result}`)
+    // }
   } finally {
     Deno.removeSync(tempFile)
   }

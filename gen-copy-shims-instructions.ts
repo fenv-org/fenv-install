@@ -61,7 +61,13 @@ async function main() {
     if (GITHUB_TOKEN) {
       args.push(`-H`, `Authorization: Bearer ${GITHUB_TOKEN}`)
     }
-    await $`curl ${args}`
+    if (DEBUG) {
+      console.error('fenv-init: curl', args.join(' '))
+    }
+    await $`curl ${args}`.stderr('null')
+    if (DEBUG) {
+      console.error('fenv-init: chmod a+x', $.path(join(fenvHome, shim)))
+    }
     await $`chmod a+x "${$.path(join(fenvHome, shim))}"`
   }
 }

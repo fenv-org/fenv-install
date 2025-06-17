@@ -111,6 +111,8 @@ function copy_shims() {
   >&2 echo "Copying shims..."
   deno_run \
     --allow-net \
+    --allow-read \
+    --allow-write \
     "$SCRIPT_BASE_URL/gen-copy-shims-instructions.ts" \
     "$fenv_home" \
     "$FENV_VERSION" \

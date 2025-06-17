@@ -1,7 +1,4 @@
 {
-  "[rust]": {
-    "editor.defaultFormatter": "rust-lang.rust-analyzer"
-  },
   "[typescript]": {
     "editor.defaultFormatter": "denoland.vscode-deno",
     "editor.indentSize": 2
@@ -18,6 +15,5 @@
   "files.trimTrailingWhitespace": true,
   "deno.enable": true,
   "deno.lint": true,
-  "deno.unstable": false,
   "cSpell.words": ["fenv"]
 }

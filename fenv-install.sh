@@ -115,9 +115,7 @@ function copy_shims() {
     --allow-write \
     "$SCRIPT_BASE_URL/gen-copy-shims-instructions.ts" \
     "$fenv_home" \
-    "$FENV_VERSION" \
-    2>/dev/null |
-    bash -
+    "$FENV_VERSION"
 }
 
 function higher_version() {

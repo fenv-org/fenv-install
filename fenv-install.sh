@@ -92,28 +92,22 @@ function install_deno() {
 function deno_run() {
   if [[ -n "$FENV_DEBUG" ]]; then
     # shellcheck disable=SC2068
-    $deno_bin run -L debug "$DENO_RELOAD_FLAG" $@
+    $deno_bin --allow-run --allow-net --allow-read --allow-write --allow-env run -L debug "$DENO_RELOAD_FLAG" $@
   else
     # shellcheck disable=SC2068
-    $deno_bin run "$DENO_RELOAD_FLAG" $@
+    $deno_bin --allow-run --allow-net --allow-read --allow-write --allow-env run "$DENO_RELOAD_FLAG" $@
   fi
 }
 
 function install_fenv() {
   >&2 echo "Downloading \`fenv\` CLI..."
   rm -rf "${fenv_home:-$HOME/.fenv}/bin"
-  deno_run \
-    --allow-run --allow-net --allow-read --allow-write --allow-env \
-    "$SCRIPT_BASE_URL/install-assets.ts" "$@"
+  deno_run "$SCRIPT_BASE_URL/install-assets.ts" "$@"
 }
 
 function copy_shims() {
   >&2 echo "Copying shims..."
   deno_run \
-    --allow-net \
-    --allow-read \
-    --allow-write \
-    --allow-env \
     "$SCRIPT_BASE_URL/gen-copy-shims-instructions.ts" \
     "$fenv_home" \
     "$FENV_VERSION"

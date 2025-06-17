@@ -3,7 +3,7 @@
 import $ from 'jsr:@david/dax@0.43.2'
 import { getRelease, Release } from './module/fenv-release.ts'
 import { join } from 'jsr:@std/path@^1.1.0'
-import { ensureDirSync } from 'jsr:@std/fs@^1.0.8'
+import { ensureDirSync, existsSync } from 'jsr:@std/fs@^1.0.8'
 
 const BASE_URL = 'https://raw.githubusercontent.com/fenv-org/fenv' as const
 const DEBUG = Deno.env.get('FENV_DEBUG') === '1'
@@ -67,6 +67,10 @@ async function main() {
     await $`curl ${args}`.stderr('null')
     if (DEBUG) {
       console.error('fenv-init: chmod a+x', $.path(join(fenvHome, shim)))
+    }
+    if (!existsSync(join(fenvHome, shim))) {
+      console.error('fenv-init: Failed to copy', shim)
+      Deno.exit(3)
     }
     await $`chmod a+x ${$.path(join(fenvHome, shim))}`
   }

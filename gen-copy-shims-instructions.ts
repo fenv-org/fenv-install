@@ -1,3 +1,5 @@
+// deno-lint-ignore-file no-explicit-any
+
 import { getRelease, Release } from './module/fenv-release.ts'
 
 const BASE_URL = 'https://raw.githubusercontent.com/fenv-org/fenv'
@@ -11,7 +13,7 @@ async function main() {
   let release: Release
   try {
     release = await getRelease({ tag: version })
-  } catch (e) {
+  } catch (e: any) {
     if (e.cause?.status === 404) {
       console.error('fenv-init: No release found:', version)
       Deno.exit(1)

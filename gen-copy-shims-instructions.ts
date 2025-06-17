@@ -1,6 +1,14 @@
-import { getRelease, Release } from './module/fenv-release.ts'
+// deno-lint-ignore-file no-explicit-any
 
-const BASE_URL = 'https://raw.githubusercontent.com/fenv-org/fenv'
+import $ from 'jsr:@david/dax@0.43.2'
+import { getRelease, Release } from './module/fenv-release.ts'
+import { join } from 'jsr:@std/path@^1.1.0'
+import { ensureDirSync, existsSync } from 'jsr:@std/fs@^1.0.8'
+
+const BASE_URL = 'https://raw.githubusercontent.com/fenv-org/fenv' as const
+const DEBUG = Deno.env.get('FENV_DEBUG') === '1'
+const GITHUB_TOKEN = Deno.env.get('GITHUB_TOKEN') ||
+  Deno.env.get('GH_TOKEN') || ''
 
 async function main() {
   const fenvHome = Deno.args[0]
@@ -10,8 +18,11 @@ async function main() {
 
   let release: Release
   try {
+    if (DEBUG) {
+      console.error('fenv-init: Fetching release:', version)
+    }
     release = await getRelease({ tag: version })
-  } catch (e) {
+  } catch (e: any) {
     if (e.cause?.status === 404) {
       console.error('fenv-init: No release found:', version)
       Deno.exit(1)
@@ -22,14 +33,47 @@ async function main() {
   }
 
   const tag = release.tag_name
-  console.log(`rm -rf ${fenvHome}/shims`)
-  console.log(`mkdir -p ${fenvHome}/{shims,versions}`)
-  console.log('for command in shims/flutter shims/dart; do')
-  console.log('  curl -fsSL \\')
-  console.log(`    "${BASE_URL}/${tag}/$command" \\`)
-  console.log(`    -o "${fenvHome}/$command"`)
-  console.log(`  chmod a+x "${fenvHome}/$command"`)
-  console.log('done')
+
+  const shims = [
+    'shims/flutter',
+    'shims/dart',
+  ]
+
+  if (DEBUG) {
+    console.error('fenv-init: Removing shims...')
+  }
+  Deno.removeSync(join(fenvHome, 'shims'), { recursive: true })
+  if (DEBUG) {
+    console.error('fenv-init: Creating shims and versions...')
+  }
+  ensureDirSync(join(fenvHome, 'shims'))
+  ensureDirSync(join(fenvHome, 'versions'))
+  for (const shim of shims) {
+    if (DEBUG) {
+      console.error('fenv-init: Copying', shim)
+    }
+    const args = [
+      '-fsSL',
+      `${BASE_URL}/${tag}/${shim}`,
+      '-o',
+      $.path(join(fenvHome, shim)),
+    ]
+    if (GITHUB_TOKEN) {
+      args.push(`-H`, `Authorization: Bearer ${GITHUB_TOKEN}`)
+    }
+    if (DEBUG) {
+      console.error('fenv-init: curl', args.join(' '))
+    }
+    await $`curl ${args}`.stderr('null')
+    if (DEBUG) {
+      console.error('fenv-init: chmod a+x', $.path(join(fenvHome, shim)))
+    }
+    if (!existsSync(join(fenvHome, shim))) {
+      console.error('fenv-init: Failed to copy', shim)
+      Deno.exit(3)
+    }
+    Deno.chmodSync(join(fenvHome, shim), 0o755)
+  }
 }
 
 main()

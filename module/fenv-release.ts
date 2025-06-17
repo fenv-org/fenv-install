@@ -1,4 +1,4 @@
-import { decompress } from 'https://deno.land/x/zip@v1.2.5/mod.ts'
+import $ from 'jsr:@david/dax@0.43.2'
 
 export type Release = {
   id: number
@@ -21,6 +21,15 @@ export type Asset = {
   size: number
 }
 
+const DEBUG = Deno.env.get('FENV_DEBUG') === '1'
+
+const GITHUB_TOKEN = Deno.env.get('GITHUB_TOKEN') ||
+  Deno.env.get('GH_TOKEN') || ''
+
+const authHeader: {
+  Authorization?: string
+} = GITHUB_TOKEN ? { 'Authorization': `Bearer ${GITHUB_TOKEN}` } : {}
+
 export async function getRelease(
   option?: { tag?: string },
 ): Promise<Release> {
@@ -29,8 +38,9 @@ export async function getRelease(
       (option?.tag ? `/tags/${option.tag}` : '/latest'),
     {
       headers: {
+        ...authHeader,
         'accept': 'application/vnd.github+json',
-        'x-github0api-version': '2022-11-28',
+        'X-GitHub-Api-Version': '2022-11-28',
       },
     },
   )
@@ -49,7 +59,11 @@ export async function downloadZipAsset(
   asset: { browser_download_url: string },
   destination: string,
 ): Promise<void> {
-  const response = await fetch(asset.browser_download_url)
+  const response = await fetch(asset.browser_download_url, {
+    headers: {
+      ...authHeader,
+    },
+  })
   if (!response.ok) {
     throw new Error(
       `Failed to fetch asset: ${response.status}: ${response.statusText}`,
@@ -61,7 +75,11 @@ export async function downloadZipAsset(
   try {
     const blob = await response.blob()
     await Deno.writeFile(tempFile, blob.stream())
-    await decompress(tempFile, destination)
+    if (DEBUG) {
+      console.error(`Downloaded asset to: ${tempFile}`)
+      console.error(`Decompressing asset to: ${destination}`)
+    }
+    await $`unzip -o ${tempFile} -d ${destination}`
   } finally {
     Deno.removeSync(tempFile)
   }

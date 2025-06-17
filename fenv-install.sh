@@ -10,6 +10,8 @@ if [[ -n "$FENV_DEBUG" ]]; then
   set -x
 fi
 
+DENO_VERSION=v2.3.6
+
 OS_TYPE_LINUX=1
 OS_TYPE_MACOS=2
 OS_TYPE_WSL=3
@@ -84,7 +86,7 @@ function install_deno() {
   esac
 
   >&2 echo "Installing script runner..."
-  curl -fsSL "$install_sh" | DENO_INSTALL=$temp_dir sh -s -- v1.46.3 >/dev/null
+  curl -fsSL "$install_sh" | DENO_INSTALL=$temp_dir sh -s -- "$DENO_VERSION" >/dev/null
 }
 
 function deno_run() {

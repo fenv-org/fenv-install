@@ -72,7 +72,7 @@ async function main() {
       console.error('fenv-init: Failed to copy', shim)
       Deno.exit(3)
     }
-    await $`chmod a+x ${$.path(join(fenvHome, shim))}`
+    Deno.chmodSync(join(fenvHome, shim), 0o755)
   }
 }
 

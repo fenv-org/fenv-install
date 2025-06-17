@@ -61,7 +61,7 @@ async function main() {
     if (GITHUB_TOKEN) {
       args.push(`-H`, `Authorization: Bearer ${GITHUB_TOKEN}`)
     }
-    await $`curl ${args}`.stderr('null')
+    await $`curl ${args}`
     await $`chmod a+x "${$.path(join(fenvHome, shim))}"`
   }
 }

@@ -90,13 +90,13 @@ function install_deno() {
 }
 
 function deno_run() {
-  if [[ -n "$FENV_DEBUG" ]]; then
-    # shellcheck disable=SC2068
-    $deno_bin run --allow-run --allow-net --allow-read --allow-write --allow-env -L debug "$DENO_RELOAD_FLAG" $@
-  else
+  # if [[ -n "$FENV_DEBUG" ]]; then
+  #   # shellcheck disable=SC2068
+  #   $deno_bin run --allow-run --allow-net --allow-read --allow-write --allow-env -L debug "$DENO_RELOAD_FLAG" $@
+  # else
     # shellcheck disable=SC2068
     $deno_bin run --allow-run --allow-net --allow-read --allow-write --allow-env "$DENO_RELOAD_FLAG" $@
-  fi
+  # fi
 }
 
 function install_fenv() {

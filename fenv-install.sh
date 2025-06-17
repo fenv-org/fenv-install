@@ -91,9 +91,11 @@ function install_deno() {
 
 function deno_run() {
   if [[ -n "$FENV_DEBUG" ]]; then
-    $deno_bin run -L debug "$DENO_RELOAD_FLAG" "$@"
+    # shellcheck disable=SC2068
+    $deno_bin run -L debug "$DENO_RELOAD_FLAG" $@
   else
-    $deno_bin run "$DENO_RELOAD_FLAG" "$@"
+    # shellcheck disable=SC2068
+    $deno_bin run "$DENO_RELOAD_FLAG" $@
   fi
 }
 

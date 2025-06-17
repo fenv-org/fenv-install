@@ -68,7 +68,7 @@ async function main() {
     if (DEBUG) {
       console.error('fenv-init: chmod a+x', $.path(join(fenvHome, shim)))
     }
-    await $`chmod a+x "${$.path(join(fenvHome, shim))}"`
+    await $`chmod a+x ${$.path(join(fenvHome, shim))}`
   }
 }
 

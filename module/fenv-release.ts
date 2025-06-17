@@ -81,9 +81,10 @@ export async function downloadZipAsset(
     }
     if (existsSync(destination)) {
       if (DEBUG) {
-        console.error(`Removing existing destination: ${destination}`)
+        console.error(`Recreating destination: ${destination}`)
       }
       Deno.removeSync(destination)
+      Deno.mkdirSync(destination, { recursive: true })
     }
     if (DEBUG) {
       console.error(`Decompressing asset to: ${destination}`)

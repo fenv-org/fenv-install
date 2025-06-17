@@ -1,4 +1,3 @@
-import { decompress } from 'jsr:@fakoua/zip-ts@1.3.1'
 import $ from 'jsr:@david/dax@0.43.2'
 
 export type Release = {
@@ -81,12 +80,6 @@ export async function downloadZipAsset(
       console.error(`Decompressing asset to: ${destination}`)
     }
     await $`unzip -o ${tempFile} -d ${destination}`
-    // const result = await decompress(tempFile, destination, {
-    //   overwrite: true,
-    // })
-    // if (DEBUG) {
-    //   console.error(`Decompressed asset to: ${result}`)
-    // }
   } finally {
     Deno.removeSync(tempFile)
   }

@@ -42,7 +42,9 @@ async function main() {
   if (DEBUG) {
     console.error('fenv-init: Removing shims...')
   }
-  Deno.removeSync(join(fenvHome, 'shims'), { recursive: true })
+  if (existsSync(join(fenvHome, 'shims')) {
+    Deno.removeSync(join(fenvHome, 'shims'), { recursive: true })
+  }
   if (DEBUG) {
     console.error('fenv-init: Creating shims and versions...')
   }

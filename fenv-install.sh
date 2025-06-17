@@ -103,6 +103,9 @@ function install_fenv() {
   >&2 echo "Downloading \`fenv\` CLI..."
   rm -rf "${fenv_home:-$HOME/.fenv}/bin"
   deno_run "$SCRIPT_BASE_URL/install-assets.ts" "$@"
+  if [[ ! -f "$fenv_home/bin/fenv" ]]; then
+    abort "Failed to install 'fenv'"
+  fi
 }
 
 function copy_shims() {

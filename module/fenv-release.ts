@@ -1,4 +1,4 @@
-import { decompress } from 'https://deno.land/x/zip@v1.2.5/mod.ts'
+import { decompress } from 'jsr:@fakoua/zip-ts@1.3.1'
 
 export type Release = {
   id: number
@@ -21,6 +21,13 @@ export type Asset = {
   size: number
 }
 
+const GITHUB_TOKEN = Deno.env.get('GITHUB_TOKEN') ||
+  Deno.env.get('GH_TOKEN') || ''
+
+const authHeader: {
+  Authorization?: string
+} = GITHUB_TOKEN ? { 'Authorization': `Bearer ${GITHUB_TOKEN}` } : {}
+
 export async function getRelease(
   option?: { tag?: string },
 ): Promise<Release> {
@@ -29,8 +36,9 @@ export async function getRelease(
       (option?.tag ? `/tags/${option.tag}` : '/latest'),
     {
       headers: {
+        ...authHeader,
         'accept': 'application/vnd.github+json',
-        'x-github0api-version': '2022-11-28',
+        'X-GitHub-Api-Version': '2022-11-28',
       },
     },
   )
@@ -49,7 +57,11 @@ export async function downloadZipAsset(
   asset: { browser_download_url: string },
   destination: string,
 ): Promise<void> {
-  const response = await fetch(asset.browser_download_url)
+  const response = await fetch(asset.browser_download_url, {
+    headers: {
+      ...authHeader,
+    },
+  })
   if (!response.ok) {
     throw new Error(
       `Failed to fetch asset: ${response.status}: ${response.statusText}`,

@@ -1,10 +1,8 @@
 {
   "fmt": {
-    "options": {
-      "indentWidth": 2,
-      "singleQuote": true,
-      "semiColons": false
-    }
+    "indentWidth": 2,
+    "singleQuote": true,
+    "semiColons": false
   },
   "lock": false
 }

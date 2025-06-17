@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+# cSpell:words substr
+
 set -eo pipefail
 
 if [[ -n "$FENV_DEBUG" ]]; then
@@ -7,6 +9,8 @@ if [[ -n "$FENV_DEBUG" ]]; then
   export PS4='+(${BASH_SOURCE}:${LINENO}): ${FUNCNAME[0]:+${FUNCNAME[0]}(): }'
   set -x
 fi
+
+DENO_VERSION=v2.3.6
 
 OS_TYPE_LINUX=1
 OS_TYPE_MACOS=2
@@ -21,7 +25,7 @@ SCRIPT_VERSION="main"
 SCRIPT_BASE_URL="https://$SCRIPT_AUTHORITY/$SCRIPT_REPO/$SCRIPT_VERSION"
 DENO_RELOAD_FLAG="--reload=https://$SCRIPT_AUTHORITY/$SCRIPT_REPO"
 
-temp_dir=$(mktemp -d ${TMPDIR:-/tmp}/tmp_XXXXXXXX)
+temp_dir=$(mktemp -d "${TMPDIR:-/tmp}/tmp_XXXXXXXX")
 deno_bin=$temp_dir/bin/deno
 
 if [[ -z "$FENV_ROOT" ]]; then
@@ -31,11 +35,12 @@ else
 fi
 
 function abort() {
-  >&2 echo "fenv-init: "$@
-  rm -rf $temp_dir
+  >&2 echo "fenv-init: $*"
+  rm -rf "$temp_dir"
   exit 1
 }
 
+# shellcheck disable=SC2308
 function check_os() {
   # Check if the OS is Linux
   if [[ "$(uname)" == "Linux" ]]; then
@@ -48,11 +53,11 @@ function check_os() {
     echo $OS_TYPE_WSL
     abort "Unsupported OS: Windows using WSL"
   # Check if the OS is Windows using MinGW
-  elif [[ "$(expr substr $(uname -s) 1 10)" == "MINGW32_NT" ]]; then
+  elif [[ "$(expr substr "$(uname -s)" 1 10)" == "MINGW32_NT" ]]; then
     echo $OS_TYPE_MINGW
     abort "Unsupported OS: Windows using MinGW"
   # Check if the OS is Windows using Git Bash
-  elif [[ "$(expr substr $(uname -s) 1 5)" == "MINGW" ]]; then
+  elif [[ "$(expr substr "$(uname -s)" 1 5)" == "MINGW" ]]; then
     echo $OS_TYPE_GIT_BASH
     abort "Unsupported OS: Windows using Git Bash"
   # If none of the above conditions match, display an unknown OS message
@@ -81,23 +86,23 @@ function install_deno() {
   esac
 
   >&2 echo "Installing script runner..."
-  curl -fsSL "$install_sh" | DENO_INSTALL=$temp_dir sh -s -- v1.46.3 >/dev/null
+  curl -fsSL "$install_sh" | DENO_INSTALL=$temp_dir sh -s -- "$DENO_VERSION" >/dev/null
 }
 
 function deno_run() {
   if [[ -n "$FENV_DEBUG" ]]; then
-    $deno_bin run -L debug $DENO_RELOAD_FLAG $@
+    $deno_bin run -L debug "$DENO_RELOAD_FLAG" "$@"
   else
-    $deno_bin run $DENO_RELOAD_FLAG $@
+    $deno_bin run "$DENO_RELOAD_FLAG" "$@"
   fi
 }
 
 function install_fenv() {
   >&2 echo "Downloading \`fenv\` CLI..."
-  rm -rf "$fenv_home/bin"
+  rm -rf "${fenv_home:-$HOME/.fenv}/bin"
   deno_run \
     --allow-run --allow-net --allow-read --allow-write --allow-env \
-    "$SCRIPT_BASE_URL/install-assets.ts" $@
+    "$SCRIPT_BASE_URL/install-assets.ts" "$@"
 }
 
 function copy_shims() {
@@ -106,13 +111,13 @@ function copy_shims() {
     --allow-net \
     "$SCRIPT_BASE_URL/gen-copy-shims-instructions.ts" \
     "$fenv_home" \
-    $FENV_VERSION \
+    "$FENV_VERSION" \
     2>/dev/null |
     bash -
 }
 
 function higher_version() {
-  printf "$1\n$2" | sort --version-sort | tail -n 1
+  printf "%s\n%s" "$1" "$2" | sort --version-sort | tail -n 1
 }
 
 function main() {
@@ -134,7 +139,7 @@ function main() {
   fi
 
   install_deno
-  install_fenv $FENV_VERSION
+  install_fenv "$FENV_VERSION"
   copy_shims
 
   {
@@ -144,10 +149,10 @@ function main() {
     echo ''
     echo "$fenv_home/bin/fenv init"
     echo ''
-    echo '# And follow the instructions if you have not setup `fenv` yet:'
+    echo "# And follow the instructions if you have not setup 'fenv' yet:"
   } >&2
 
-  rm -rf $temp_dir
+  rm -rf "$temp_dir"
 }
 
 main

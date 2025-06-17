@@ -1,8 +1,11 @@
 // deno-lint-ignore-file no-explicit-any
 
+import $ from 'jsr:@david/dax@0.43.2'
 import { getRelease, Release } from './module/fenv-release.ts'
+import { join } from 'jsr:@std/path@^1.1.0'
+import { ensureDirSync } from 'jsr:@std/fs@^1.0.8'
 
-const BASE_URL = 'https://raw.githubusercontent.com/fenv-org/fenv'
+const BASE_URL = 'https://raw.githubusercontent.com/fenv-org/fenv' as const
 
 async function main() {
   const fenvHome = Deno.args[0]
@@ -24,14 +27,20 @@ async function main() {
   }
 
   const tag = release.tag_name
-  console.log(`rm -rf ${fenvHome}/shims`)
-  console.log(`mkdir -p ${fenvHome}/{shims,versions}`)
-  console.log('for command in shims/flutter shims/dart; do')
-  console.log('  curl -fsSL \\')
-  console.log(`    "${BASE_URL}/${tag}/$command" \\`)
-  console.log(`    -o "${fenvHome}/$command"`)
-  console.log(`  chmod a+x "${fenvHome}/$command"`)
-  console.log('done')
+
+  const shims = [
+    'shims/flutter',
+    'shims/dart',
+  ]
+  Deno.removeSync(join(fenvHome, 'shims'), { recursive: true })
+  ensureDirSync(join(fenvHome, 'shims'))
+  ensureDirSync(join(fenvHome, 'versions'))
+  for (const shim of shims) {
+    await $`curl -fsSL "${BASE_URL}/${tag}/${shim}" -o "${
+      $.path(join(fenvHome, shim))
+    }"`.stderr('null')
+    await $`chmod a+x "${$.path(join(fenvHome, shim))}"`
+  }
 }
 
 main()

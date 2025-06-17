@@ -1,4 +1,5 @@
 import { decompress } from 'jsr:@fakoua/zip-ts@1.3.1'
+import { existsSync } from 'jsr:@std/fs@^1.0.8'
 
 export type Release = {
   id: number
@@ -73,6 +74,9 @@ export async function downloadZipAsset(
   try {
     const blob = await response.blob()
     await Deno.writeFile(tempFile, blob.stream())
+    if (existsSync(destination)) {
+      Deno.removeSync(destination)
+    }
     await decompress(tempFile, destination)
   } finally {
     Deno.removeSync(tempFile)

@@ -22,6 +22,8 @@ export type Asset = {
   size: number
 }
 
+const DEBUG = Deno.env.get('FENV_DEBUG') === '1'
+
 const GITHUB_TOKEN = Deno.env.get('GITHUB_TOKEN') ||
   Deno.env.get('GH_TOKEN') || ''
 
@@ -74,10 +76,22 @@ export async function downloadZipAsset(
   try {
     const blob = await response.blob()
     await Deno.writeFile(tempFile, blob.stream())
+    if (DEBUG) {
+      console.error(`Downloaded asset to: ${tempFile}`)
+    }
     if (existsSync(destination)) {
+      if (DEBUG) {
+        console.error(`Removing existing destination: ${destination}`)
+      }
       Deno.removeSync(destination)
     }
-    await decompress(tempFile, destination)
+    if (DEBUG) {
+      console.error(`Decompressing asset to: ${destination}`)
+    }
+    const result = await decompress(tempFile, destination)
+    if (DEBUG) {
+      console.error(`Decompressed asset to: ${result}`)
+    }
   } finally {
     Deno.removeSync(tempFile)
   }

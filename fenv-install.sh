@@ -113,6 +113,7 @@ function copy_shims() {
     --allow-net \
     --allow-read \
     --allow-write \
+    --allow-env \
     "$SCRIPT_BASE_URL/gen-copy-shims-instructions.ts" \
     "$fenv_home" \
     "$FENV_VERSION"

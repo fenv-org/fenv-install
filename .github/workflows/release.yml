@@ -24,9 +24,7 @@ jobs:
 
       - name: Generate fenv-install-release.sh
         run: |
-          cat fenv-install.sh \
-            | sed -e 's/SCRIPT_VERSION="${SCRIPT_VERSION:-main}"/SCRIPT_VERSION="release"/' \
-            > fenv-install-release.sh
+          cp fenv-install.sh fenv-install-release.sh
 
       - name: Commit & Push changes
         uses: actions-js/push@master

@@ -31,8 +31,12 @@ else
   fenv_home="${FENV_ROOT%/}"
 fi
 
-function abort() {
+function log_msg() {
   >&2 echo "fenv-init: $*"
+}
+
+function abort() {
+  log_msg "$*"
   rm -rf "$temp_dir"
   exit 1
 }
@@ -104,7 +108,7 @@ function download_fenv_binary() {
     redirect_url=$(curl -fsS -I "${auth_args[@]}" "$download_url" 2>&1 | grep -i "^location:" | head -1 | sed 's/^location: //i' | tr -d '\r')
 
     if [[ -z "$redirect_url" ]]; then
-      >&2 echo "fenv-init: Failed to get redirect URL"
+      log_msg "Failed to get redirect URL"
       exit 4
     fi
 
@@ -112,21 +116,21 @@ function download_fenv_binary() {
     # URL format: https://github.com/fenv-org/fenv/releases/download/{tag}/{asset}
     if [[ "$redirect_url" =~ /releases/download/([^/]+)/ ]]; then
       release_tag="${BASH_REMATCH[1]}"
-      >&2 echo "fenv-init: Found release: $release_tag"
+      log_msg "Found release: $release_tag"
     else
-      >&2 echo "fenv-init: Failed to extract tag from redirect URL: $redirect_url"
+      log_msg "Failed to extract tag from redirect URL: $redirect_url"
       exit 4
     fi
   else
     # For specific version, use the version as the tag
     release_tag="$version"
-    >&2 echo "fenv-init: Using version: $release_tag"
+    log_msg "Using version: $release_tag"
   fi
 
   # Download the asset
   local zip_file="$temp_dir/fenv.zip"
   if ! curl -fsSL "${auth_args[@]}" -o "$zip_file" "$download_url"; then
-    >&2 echo "fenv-init: Failed to download asset from $download_url"
+    log_msg "Failed to download asset from $download_url"
     exit 5
   fi
 
@@ -135,7 +139,7 @@ function download_fenv_binary() {
   mkdir -p "${fenv_home}/bin"
 
   if ! unzip -o "$zip_file" -d "${fenv_home}/bin" >/dev/null; then
-    >&2 echo "fenv-init: Failed to extract asset"
+    log_msg "Failed to extract asset"
     exit 5
   fi
 }
@@ -145,7 +149,7 @@ function copy_shims() {
 
   # Use the global release_tag variable set by download_fenv_binary
   if [[ -z "$release_tag" ]]; then
-    >&2 echo "fenv-init: Error: release_tag not set"
+    log_msg "Error: release_tag not set"
     exit 4
   fi
 
@@ -154,29 +158,60 @@ function copy_shims() {
   mkdir -p "${fenv_home}/shims"
   mkdir -p "${fenv_home}/versions"
 
-  # Download shims
-  local shims=("flutter" "dart")
+  # Setup auth args
   local github_token="${GITHUB_TOKEN:-${GH_TOKEN:-}}"
   local auth_args=()
   if [[ -n "$github_token" ]]; then
     auth_args=(-H "Authorization: Bearer $github_token")
   fi
 
-  for shim in "${shims[@]}"; do
-    local url="https://raw.githubusercontent.com/fenv-org/fenv/${release_tag}/shims/${shim}"
+  # Download source archive
+  local archive_url="https://github.com/fenv-org/fenv/archive/refs/tags/${release_tag}.zip"
+  local archive_file="$temp_dir/fenv-source.zip"
+
+  if [[ -n "$FENV_DEBUG" ]]; then
+    log_msg "Downloading source archive from $archive_url"
+  fi
+
+  if ! curl -fsSL "${auth_args[@]}" -o "$archive_file" "$archive_url"; then
+    log_msg "Failed to download source archive from $archive_url"
+    exit 3
+  fi
+
+  # Extract archive
+  local extract_dir="$temp_dir/fenv-source"
+  mkdir -p "$extract_dir"
+
+  if ! unzip -q "$archive_file" -d "$extract_dir"; then
+    log_msg "Failed to extract source archive"
+    exit 3
+  fi
+
+  # Find extracted directory (GitHub strips 'v' prefix from tag in directory name)
+  local tag_without_v="${release_tag#v}"
+  local source_dir="$extract_dir/fenv-${tag_without_v}"
+
+  if [[ ! -d "$source_dir/shims" ]]; then
+    log_msg "Failed to find shims directory in extracted archive"
+    exit 3
+  fi
+
+  # Copy shims
+  for shim_path in "$source_dir/shims"/*; do
+    if [[ ! -f "$shim_path" ]]; then
+      continue
+    fi
+
+    local shim
+    shim=$(basename "$shim_path")
     local dest="${fenv_home}/shims/${shim}"
 
     if [[ -n "$FENV_DEBUG" ]]; then
-      >&2 echo "fenv-init: Copying shims/${shim} from $url"
+      log_msg "Copying shims/${shim} from extracted archive"
     fi
 
-    if ! curl -fsSL "${auth_args[@]}" -o "$dest" "$url"; then
-      >&2 echo "fenv-init: Failed to copy shims/${shim}"
-      exit 3
-    fi
-
-    if [[ ! -f "$dest" ]]; then
-      >&2 echo "fenv-init: Failed to copy shims/${shim}"
+    if ! cp "$shim_path" "$dest"; then
+      log_msg "Failed to copy shims/${shim}"
       exit 3
     fi
 

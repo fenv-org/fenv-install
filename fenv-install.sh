@@ -154,28 +154,59 @@ function copy_shims() {
   mkdir -p "${fenv_home}/shims"
   mkdir -p "${fenv_home}/versions"
 
-  # Download shims
-  local shims=("flutter" "dart")
+  # Setup auth args
   local github_token="${GITHUB_TOKEN:-${GH_TOKEN:-}}"
   local auth_args=()
   if [[ -n "$github_token" ]]; then
     auth_args=(-H "Authorization: Bearer $github_token")
   fi
 
-  for shim in "${shims[@]}"; do
-    local url="https://raw.githubusercontent.com/fenv-org/fenv/${release_tag}/shims/${shim}"
+  # Download source archive
+  local archive_url="https://github.com/fenv-org/fenv/archive/refs/tags/${release_tag}.zip"
+  local archive_file="$temp_dir/fenv-source.zip"
+
+  if [[ -n "$FENV_DEBUG" ]]; then
+    >&2 echo "fenv-init: Downloading source archive from $archive_url"
+  fi
+
+  if ! curl -fsSL "${auth_args[@]}" -o "$archive_file" "$archive_url"; then
+    >&2 echo "fenv-init: Failed to download source archive from $archive_url"
+    exit 3
+  fi
+
+  # Extract archive
+  local extract_dir="$temp_dir/fenv-source"
+  mkdir -p "$extract_dir"
+
+  if ! unzip -q "$archive_file" -d "$extract_dir"; then
+    >&2 echo "fenv-init: Failed to extract source archive"
+    exit 3
+  fi
+
+  # Find extracted directory (GitHub strips 'v' prefix from tag in directory name)
+  local tag_without_v="${release_tag#v}"
+  local source_dir="$extract_dir/fenv-${tag_without_v}"
+
+  if [[ ! -d "$source_dir/shims" ]]; then
+    >&2 echo "fenv-init: Failed to find shims directory in extracted archive"
+    exit 3
+  fi
+
+  # Copy shims
+  for shim_path in "$source_dir/shims"/*; do
+    if [[ ! -f "$shim_path" ]]; then
+      continue
+    fi
+
+    local shim
+    shim=$(basename "$shim_path")
     local dest="${fenv_home}/shims/${shim}"
 
     if [[ -n "$FENV_DEBUG" ]]; then
-      >&2 echo "fenv-init: Copying shims/${shim} from $url"
+      >&2 echo "fenv-init: Copying shims/${shim} from extracted archive"
     fi
 
-    if ! curl -fsSL "${auth_args[@]}" -o "$dest" "$url"; then
-      >&2 echo "fenv-init: Failed to copy shims/${shim}"
-      exit 3
-    fi
-
-    if [[ ! -f "$dest" ]]; then
+    if ! cp "$shim_path" "$dest"; then
       >&2 echo "fenv-init: Failed to copy shims/${shim}"
       exit 3
     fi

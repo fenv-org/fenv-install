@@ -6,19 +6,83 @@ permissions:
 on: workflow_dispatch
 
 jobs:
+  verify:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+
+    steps:
+      - name: Test latest version installation
+        run: |
+          set -e
+
+          echo "Testing latest version installation on ${{ matrix.os }}..."
+          FENV_ROOT=/tmp/fenv-test
+          rm -rf "$FENV_ROOT"
+
+          # Install
+          curl -fsSL https://fenv-install-dev.jerry.company |
+            FENV_ROOT="$FENV_ROOT" bash
+
+          # Get expected version (strip 'v' prefix since fenv --version outputs without it)
+          LATEST_VERSION=$(
+            curl -fsSL https://api.github.com/repos/fenv-org/fenv/releases/latest |
+              grep '"tag_name"' |
+              sed -E 's/.*"tag_name": "([^"]+)".*/\1/' |
+              sed 's/^v//')
+          echo "Expected version: $LATEST_VERSION (no 'v' prefix)"
+
+          # Verify files exist and are executable
+          for file in "$FENV_ROOT/bin/fenv" "$FENV_ROOT/shims/flutter" "$FENV_ROOT/shims/dart"; do
+            [[ -f "$file" ]] || { echo "ERROR: $file missing"; exit 1; }
+            [[ -x "$file" ]] || { echo "ERROR: $file not executable"; exit 1; }
+          done
+
+          # Verify version output
+          ACTUAL_VERSION=$("$FENV_ROOT/bin/fenv" --version | sed 's/^fenv //')
+          [[ "$ACTUAL_VERSION" == "$LATEST_VERSION" ]] || { echo "ERROR: Version mismatch. Expected: $LATEST_VERSION, Got: $ACTUAL_VERSION"; exit 1; }
+
+          echo "✓ Latest version verified on ${{ matrix.os }}"
+
+      - name: Test specific version installation
+        run: |
+          set -e
+
+          echo "Testing v0.1.0 installation on ${{ matrix.os }}..."
+          FENV_ROOT=/tmp/fenv-test-v010
+          rm -rf "$FENV_ROOT"
+
+          # Install with specific version
+          curl -fsSL https://fenv-install-dev.jerry.company |
+            FENV_ROOT="$FENV_ROOT" FENV_VERSION=v0.1.0 bash
+
+          # Verify files exist and are executable
+          for file in "$FENV_ROOT/bin/fenv" "$FENV_ROOT/shims/flutter" "$FENV_ROOT/shims/dart"; do
+            [[ -f "$file" ]] || { echo "ERROR: $file missing"; exit 1; }
+            [[ -x "$file" ]] || { echo "ERROR: $file not executable"; exit 1; }
+          done
+
+          # Verify version output
+          ACTUAL_VERSION=$("$FENV_ROOT/bin/fenv" --version | sed 's/^fenv //')
+          [[ "$ACTUAL_VERSION" == "0.1.0" ]] || { echo "ERROR: Version mismatch. Expected: 0.1.0, Got: $ACTUAL_VERSION"; exit 1; }
+
+          echo "✓ v0.1.0 verified on ${{ matrix.os }}"
+
   release:
+    needs: verify
     runs-on: ubuntu-latest
 
     steps:
       - name: Merge main -> release
-        uses: devmasx/merge-branch@1.4.0
+        uses: devmasx/merge-branch@v1.4.0
         with:
           type: now
           from_branch: main
           target_branch: release
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v6.0.1
         with:
           ref: release
 
@@ -27,7 +91,7 @@ jobs:
           cp fenv-install.sh fenv-install-release.sh
 
       - name: Commit & Push changes
-        uses: actions-js/push@master
+        uses: actions-js/push@v1.5
         with:
           branch: release
           author_email: fenv@jerry.company

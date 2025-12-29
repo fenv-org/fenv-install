@@ -10,8 +10,6 @@ if [[ -n "$FENV_DEBUG" ]]; then
   set -x
 fi
 
-DENO_VERSION=v2.3.6
-
 OS_TYPE_LINUX=1
 OS_TYPE_MACOS=2
 OS_TYPE_WSL=3
@@ -19,14 +17,13 @@ OS_TYPE_MINGW=4
 OS_TYPE_GIT_BASH=5
 OS_TYPE_UNKNOWN=6
 
-SCRIPT_AUTHORITY="raw.githubusercontent.com"
-SCRIPT_REPO="fenv-org/fenv-install"
-SCRIPT_VERSION="${SCRIPT_VERSION:-main}"
-SCRIPT_BASE_URL="https://$SCRIPT_AUTHORITY/$SCRIPT_REPO/$SCRIPT_VERSION"
-DENO_RELOAD_FLAG="--reload=https://$SCRIPT_AUTHORITY/$SCRIPT_REPO"
-
 temp_dir=$(mktemp -d "${TMPDIR:-/tmp}/tmp_XXXXXXXX")
-deno_bin=$temp_dir/bin/deno
+
+cleanup() {
+  rm -rf "$temp_dir"
+}
+
+trap cleanup EXIT INT TERM
 
 if [[ -z "$FENV_ROOT" ]]; then
   fenv_home=$HOME/.fenv
@@ -73,46 +70,140 @@ function ensure_unzip() {
   fi
 }
 
-function install_deno() {
-  case "$(uname -sm)" in
-  "Linux aarch64")
-    # See here: https://github.com/LukeChannings/deno-arm64
-    install_sh=https://gist.githubusercontent.com/LukeChannings/09d53f5c364391042186518c8598b85e/raw/ac8cd8c675b985edd4b3e16df63ffef14d1f0e24/deno_install.sh
-    ;;
+function download_fenv_binary() {
+  local version="$1"
+  local target_triple
+  target_triple=$(get_target_triple)
 
-  *)
-    install_sh=https://deno.land/install.sh
-    ;;
-  esac
-
-  >&2 echo "Installing script runner..."
-  curl -fsSL "$install_sh" | DENO_INSTALL=$temp_dir sh -s -- "$DENO_VERSION" >/dev/null
-}
-
-function deno_run() {
-  # shellcheck disable=SC2068
-  $deno_bin run --allow-run --allow-net --allow-read --allow-write --allow-env "$DENO_RELOAD_FLAG" $@
-}
-
-function install_fenv() {
   >&2 echo "Downloading \`fenv\` CLI..."
-  rm -rf "${fenv_home:-$HOME/.fenv}/bin"
-  deno_run "$SCRIPT_BASE_URL/install-assets.ts" "$@"
-  if [[ ! -f "$fenv_home/bin/fenv" ]]; then
-    abort "Failed to install 'fenv'"
+
+  # Construct download URL
+  local asset_name="fenv-${target_triple}.zip"
+  local download_url
+  if [[ -z "$version" ]]; then
+    download_url="https://github.com/fenv-org/fenv/releases/latest/download/${asset_name}"
+  else
+    download_url="https://github.com/fenv-org/fenv/releases/download/${version}/${asset_name}"
+  fi
+
+  if [[ -n "$FENV_DEBUG" ]]; then
+    >&2 echo "Download URL: $download_url"
+  fi
+
+  # Setup auth args
+  local github_token="${GITHUB_TOKEN:-${GH_TOKEN:-}}"
+  local auth_args=()
+  if [[ -n "$github_token" ]]; then
+    auth_args=(-H "Authorization: Bearer $github_token")
+  fi
+
+  # Get redirect location to extract the tag (stored as global for use in copy_shims)
+  local redirect_url
+  if [[ -z "$version" ]]; then
+    # For latest, get the redirect location to determine the tag
+    redirect_url=$(curl -fsS -I "${auth_args[@]}" "$download_url" 2>&1 | grep -i "^location:" | head -1 | sed 's/^location: //i' | tr -d '\r')
+
+    if [[ -z "$redirect_url" ]]; then
+      >&2 echo "fenv-init: Failed to get redirect URL"
+      exit 4
+    fi
+
+    # Extract tag from redirect URL
+    # URL format: https://github.com/fenv-org/fenv/releases/download/{tag}/{asset}
+    if [[ "$redirect_url" =~ /releases/download/([^/]+)/ ]]; then
+      release_tag="${BASH_REMATCH[1]}"
+      >&2 echo "fenv-init: Found release: $release_tag"
+    else
+      >&2 echo "fenv-init: Failed to extract tag from redirect URL: $redirect_url"
+      exit 4
+    fi
+  else
+    # For specific version, use the version as the tag
+    release_tag="$version"
+    >&2 echo "fenv-init: Using version: $release_tag"
+  fi
+
+  # Download the asset
+  local zip_file="$temp_dir/fenv.zip"
+  if ! curl -fsSL "${auth_args[@]}" -o "$zip_file" "$download_url"; then
+    >&2 echo "fenv-init: Failed to download asset from $download_url"
+    exit 5
+  fi
+
+  # Extract to FENV_ROOT/bin
+  rm -rf "${fenv_home:?}/bin"
+  mkdir -p "${fenv_home}/bin"
+
+  if ! unzip -o "$zip_file" -d "${fenv_home}/bin" >/dev/null; then
+    >&2 echo "fenv-init: Failed to extract asset"
+    exit 5
   fi
 }
 
 function copy_shims() {
   >&2 echo "Copying shims..."
-  deno_run \
-    "$SCRIPT_BASE_URL/gen-copy-shims-instructions.ts" \
-    "$fenv_home" \
-    "$FENV_VERSION"
+
+  # Use the global release_tag variable set by download_fenv_binary
+  if [[ -z "$release_tag" ]]; then
+    >&2 echo "fenv-init: Error: release_tag not set"
+    exit 4
+  fi
+
+  # Setup directories
+  rm -rf "${fenv_home}/shims"
+  mkdir -p "${fenv_home}/shims"
+  mkdir -p "${fenv_home}/versions"
+
+  # Download shims
+  local shims=("flutter" "dart")
+  local github_token="${GITHUB_TOKEN:-${GH_TOKEN:-}}"
+  local auth_args=()
+  if [[ -n "$github_token" ]]; then
+    auth_args=(-H "Authorization: Bearer $github_token")
+  fi
+
+  for shim in "${shims[@]}"; do
+    local url="https://raw.githubusercontent.com/fenv-org/fenv/${release_tag}/shims/${shim}"
+    local dest="${fenv_home}/shims/${shim}"
+
+    if [[ -n "$FENV_DEBUG" ]]; then
+      >&2 echo "fenv-init: Copying shims/${shim} from $url"
+    fi
+
+    if ! curl -fsSL "${auth_args[@]}" -o "$dest" "$url"; then
+      >&2 echo "fenv-init: Failed to copy shims/${shim}"
+      exit 3
+    fi
+
+    if [[ ! -f "$dest" ]]; then
+      >&2 echo "fenv-init: Failed to copy shims/${shim}"
+      exit 3
+    fi
+
+    chmod 755 "$dest"
+  done
 }
 
 function higher_version() {
   printf "%s\n%s" "$1" "$2" | sort --version-sort | tail -n 1
+}
+
+function get_target_triple() {
+  local arch os_type
+
+  case "$(uname -m)" in
+    x86_64) arch="x86_64" ;;
+    aarch64|arm64) arch="aarch64" ;;
+    *) abort "Unsupported architecture: $(uname -m)" ;;
+  esac
+
+  case "$(uname)" in
+    Linux) os_type="unknown-linux-musl" ;;
+    Darwin) os_type="apple-darwin" ;;
+    *) abort "Unsupported OS: $(uname)" ;;
+  esac
+
+  echo "${arch}-${os_type}"
 }
 
 function main() {
@@ -129,12 +220,17 @@ function main() {
     pushd "$temp_dir" >/dev/null
     ./setup_fenv.sh
     popd >/dev/null
-    rm -rf "$temp_dir" >/dev/null
     exit 0
   fi
 
-  install_deno
-  install_fenv "$FENV_VERSION"
+  # Install fenv binary
+  download_fenv_binary "$FENV_VERSION"
+
+  if [[ ! -f "$fenv_home/bin/fenv" ]]; then
+    abort "Failed to install 'fenv'"
+  fi
+
+  # Copy shims
   copy_shims
 
   {
@@ -146,8 +242,6 @@ function main() {
     echo ''
     echo "# And follow the instructions if you have not setup 'fenv' yet:"
   } >&2
-
-  rm -rf "$temp_dir"
 }
 
 main

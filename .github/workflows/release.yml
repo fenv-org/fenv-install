@@ -13,6 +13,20 @@ jobs:
         os: [ubuntu-latest, macos-latest]
 
     steps:
+      - name: Get latest fenv version
+        id: get-version
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: release } = await github.rest.repos.getLatestRelease({
+              owner: 'fenv-org',
+              repo: 'fenv'
+            });
+            // Strip 'v' prefix since fenv --version outputs without it
+            const version = release.tag_name.replace(/^v/, '');
+            core.setOutput('version', version);
+            console.log(`Latest version: ${version} (stripped 'v' prefix)`);
+
       - name: Test latest version installation
         run: |
           set -e
@@ -25,14 +39,6 @@ jobs:
           curl -fsSL https://fenv-install-dev.jerry.company |
             FENV_ROOT="$FENV_ROOT" bash
 
-          # Get expected version (strip 'v' prefix since fenv --version outputs without it)
-          LATEST_VERSION=$(
-            curl -fsSL https://api.github.com/repos/fenv-org/fenv/releases/latest |
-              grep '"tag_name"' |
-              sed -E 's/.*"tag_name": "([^"]+)".*/\1/' |
-              sed 's/^v//')
-          echo "Expected version: $LATEST_VERSION (no 'v' prefix)"
-
           # Verify files exist and are executable
           for file in "$FENV_ROOT/bin/fenv" "$FENV_ROOT/shims/flutter" "$FENV_ROOT/shims/dart"; do
             [[ -f "$file" ]] || { echo "ERROR: $file missing"; exit 1; }
@@ -40,8 +46,15 @@ jobs:
           done
 
           # Verify version output
+          EXPECTED_VERSION="${{ steps.get-version.outputs.version }}"
           ACTUAL_VERSION=$("$FENV_ROOT/bin/fenv" --version | sed 's/^fenv //')
-          [[ "$ACTUAL_VERSION" == "$LATEST_VERSION" ]] || { echo "ERROR: Version mismatch. Expected: $LATEST_VERSION, Got: $ACTUAL_VERSION"; exit 1; }
+          echo "Expected version: $EXPECTED_VERSION"
+          echo "Actual version: $ACTUAL_VERSION"
+
+          [[ "$ACTUAL_VERSION" == "$EXPECTED_VERSION" ]] || {
+            echo "ERROR: Version mismatch"
+            exit 1
+          }
 
           echo "✓ Latest version verified on ${{ matrix.os }}"
 
